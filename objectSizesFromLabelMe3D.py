@@ -16,6 +16,12 @@ def processAnnotation(fname, target, procedure):
     procedure(xmltree)
     xmltree.write(target)
 
+def processAnnotations(fnames, targets, procedure):
+    '''Apply procedure to LabelMe3D annotation files and save results to 
+    targets.'''
+
+    map(processAnnotation, fnames, targets, [procedure]*len(fnames))
+
 #Function(s) for manipulating xml data.
 
 def getXML(fname):
