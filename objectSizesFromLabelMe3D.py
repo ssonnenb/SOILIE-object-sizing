@@ -1,5 +1,5 @@
-"""Add object sizes to LabelMe3D output, save in a new annotation file. This
-uses the ElementTree library, as well as numpy."""
+'''Add object sizes to LabelMe3D output, save in a new annotation file. This
+uses the ElementTree library, as well as numpy.'''
 
 import xml.etree.ElementTree as ET
 from numpy import array
@@ -33,14 +33,14 @@ def getObjects(annotation):
 
 def getPolygon3d(obj):
     """Return a list of all 3D polygons in obj, which points to an ElementTree
-    representation of an object field in a LabelMe3d annotation file.
+    representation of an object field in a LabelMe3D annotation file.
 
     The returned list is a list of ElementTree objects."""
 
     return obj.find('./world3d/polygon3d')
 
 def pointsFromPolygon3d(polygon):
-    '''Given an ElementTree representation of a 3D polygon in LabelMe3d return
+    '''Given an ElementTree representation of a 3D polygon in LabelMe3D return
     the point cloud of the polygon as a list of numpy arrays.'''
 
     return array([dataFromCoordinateAnnotations(polygon.findall(coordannots))\
@@ -54,7 +54,7 @@ def dataFromCoordinateAnnotations(ptannots):
                   for ptannot in ptannots])
 
 def findObject3d(obj):
-    '''Return true if object has polygon3d.'''
+    '''Return true if object has polygon3D.'''
 
     if obj.find('./world3d/polygon3d'):
         return True
