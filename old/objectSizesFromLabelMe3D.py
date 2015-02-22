@@ -2,71 +2,26 @@
 uses the ElementTree library, as well as numpy.'''
 
 import xml.etree.ElementTree as ET
-from numpy import array
+from numpy import array, dot, diagonal
+from numpy.linalg import solve
 from numpy.linalg import norm
 from operator import add
 
-#Function(s) for processing annotation files
-
-def processAnnotation(fname, target, procedure):
-    '''Apply procedure to LabelMe3D annotation file and save result to 
-    target.'''
-
-    xmltree = getXML(fname)
-    procedure(xmltree)
-    xmltree.write(target)
-
-def processAnnotations(fnames, targets, procedure):
-    '''Apply procedure to LabelMe3D annotation files and save results to 
-    targets.'''
-
-    map(processAnnotation, fnames, targets, [procedure]*len(fnames))
-
-#Function(s) for manipulating xml data.
-
-def getXML(fname):
-    """Load an annotation file."""
-
-    return ET.parse(fname)
-
-def getObjects(annotation):
-    """Return a list of all 3D objects in annotation, which points to the root
-    node of an ElementTree object parsed out from a LabelMe3d annotation file.
-
-    The returned list is a list of ElementTree objects."""
-
-    return filter(findObject3d, annotation.findall('./object'))
-
-def getPolygon3d(obj):
-    """Return a list of all 3D polygons in obj, which points to an ElementTree
-    representation of an object field in a LabelMe3D annotation file.
-
-    The returned list is a list of ElementTree objects."""
-
-    return obj.find('./world3d/polygon3d')
-
-def pointsFromPolygon3d(polygon):
-    '''Given an ElementTree representation of a 3D polygon in LabelMe3D return
-    the point cloud of the polygon as a list of numpy arrays.'''
-
-    return array([dataFromCoordinateAnnotations(polygon.findall(coordannots))\
-              for coordannots in ['./pt/x', './pt/y', './pt/z']]).transpose()
-
-def dataFromCoordinateAnnotations(ptannots):
-    '''Given a list of LabelMe3D pt coordinate annotations, return a list
-    containing the data in each field.'''
-
-    return array([float(ET.Element.findtext(ptannot, '.'))\
-                  for ptannot in ptannots])
-
-def findObject3d(obj):
-    '''Return true if object has polygon3D.'''
-
-    if obj.find('./world3d/polygon3d'):
-        return True
-    return False
+from LM3dFuncs import *
 
 #Function(s) for sizing polygons
+
+#Constraint: bounding balls must be represented as (center, radius)
+
+#The BoundingBall functions only find bounding balls based on centroid and
+#farthest point. I have realized that this is not ideal, as they will not find
+#the _smallest_ bounding ball. Further functions below do so. They use the
+#algorithm described by Emo Welzl (1991) in 'smallest enclosing disks (balls)
+#and ellipsoids'
+
+#The following functions are for using bounding balls centered on a point
+#cloud centroid, with radius being the max distance between centroid and any
+#one of the points.
 
 def writeBoundingBall3ds(root):
     '''Write bounding ball information to the object field of an ElementTree
@@ -132,6 +87,46 @@ def findRadius(center, points):
     points) from center (numpy array). Distance is in the Euclidian metric.'''
 
     return max([norm(center - point) for point in points])
+
+#The following functions are for using the smallest bounding balls for a point
+#cluster, algorithm is bazed on Welzl paper cited above.
+
+from random import choice
+
+def minidisk(P):
+    """Return the smallest ball bounding set of points P."""
+    
+    return _bMinidisk(P, [])
+
+def _bMinidisk(P, R):
+    if P == [] or len(R)==3:
+        B = ballFromBoundaryPoints(R)
+    else:
+        p, B = choice(P), bMinidisk(P[:].remove(p), R)
+        if not pointInBall(p, B):
+            B = bMinidisk(P[:].remove(p), R.append(p))
+    return B
+        
+def ballFromBoundaryPoints(B):
+    """Return ball with boundary points B."""
+
+    center = centerFromBoundaryPoints(B)
+    return center, findRadius(center, B[:1])
+
+from numpy import mean
+
+def centerFromBoundaryPoints(B):
+    #find segment boundaries
+    vertices = array([B[2], B[0]])
+    midpoints = array([findCentroid(B[:2]),findCentroid(B[1:2])])
+    coeffs = vertices - midpoints
+    constants = diagonal(dot(coeffs, vertices.T))
+    return solve(coeffs, constants)
+
+def pointInBall(p, B):
+    """True if p is in ball B."""
+    
+    return norm(p - B[0]) < B[1]
 
 if __name__ == '__main__':
 
